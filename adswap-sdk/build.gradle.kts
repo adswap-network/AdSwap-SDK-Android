@@ -28,7 +28,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
-    // 1. IL NUOVO METODO: Diciamo ad Android di preparare il componente "release"
+    // Diciamo ad Android di preparare il componente "release"
     publishing {
         singleVariant("release") {
             withSourcesJar()
@@ -44,15 +44,14 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-// 2. CONFIGURAZIONE JITPACK (Fuori dall'afterEvaluate globale per far felice Kotlin)
+// CONFIGURAZIONE JITPACK
 publishing {
     publications {
         register<MavenPublication>("release") {
-
-            // IMPORTANTE: Cambia "TUO_NOME_UTENTE_GITHUB" con il tuo vero username di GitHub
-            groupId = "com.github.TUO_NOME_UTENTE_GITHUB"
+            // Coordinate esatte per GitHub e JitPack
+            groupId = "com.github.adswap-network"
             artifactId = "adswap-sdk"
-            version = "1.0.0"
+            version = "1.0.2" // Versione aggiornata
 
             // Avvolgiamo solo l'estrazione del componente nell'afterEvaluate
             afterEvaluate {

@@ -19,7 +19,7 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
-    // SOSTITUISCI CON IL TUO LINK NETLIFY
+    // Inserisci l'URL esatto della tua pagina Netlify
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
@@ -40,9 +40,11 @@ public class AdSwap {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+            final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+            // FIX SCUDO: Sfondo scuro di caricamento semitrasparente per dare feedback visivo all'utente
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.parseColor("#E60F172A")));
 
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, dialog);
@@ -72,15 +74,16 @@ public class AdSwap {
             webView.loadUrl(url);
 
             container.removeAllViews();
-            // L'SDK riempie esattamente il FrameLayout, senza cercare di cambiarne le dimensioni!
+            // La WebView si modella rigidamente sulle dimensioni imposte dall'app ospite (i tuoi 80dp)
             container.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
         });
     }
 
-    private static void setupWebView(WebView webView, Activity activity, Dialog dialog) {
+    private static void setupWebView(WebView webView, Activity activity, final Dialog dialog) {
         webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null);
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
 
@@ -106,7 +109,9 @@ public class AdSwap {
             @JavascriptInterface
             public void closeAd() {
                 activity.runOnUiThread(() -> {
-                    if (dialog != null && dialog.isShowing()) dialog.dismiss();
+                    if (dialog != null && dialog.isShowing()) {
+                        dialog.dismiss();
+                    }
                 });
             }
         }, "AdSwapAndroid");

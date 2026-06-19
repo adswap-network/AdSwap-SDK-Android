@@ -5,9 +5,11 @@ import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.net.Uri;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -17,14 +19,24 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
+    // INSERISCI QUI IL TUO SITO NETLIFY (Es. https://iltuosito.netlify.app/ad.html)
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
-    // 1. Inizializzazione
+    // Classe per gestire la grafica passata dallo sviluppatore
+    public static class AdStyle {
+        public String bgColor = "1e293b";
+        public String titleColor = "ffffff";
+        public String descColor = "94a3b8";
+
+        public AdStyle setBackgroundColor(String hexCode) { this.bgColor = hexCode.replace("#", ""); return this; }
+        public AdStyle setTitleColor(String hexCode) { this.titleColor = hexCode.replace("#", ""); return this; }
+        public AdStyle setDescColor(String hexCode) { this.descColor = hexCode.replace("#", ""); return this; }
+    }
+
     public static void initialize(String publisherId) {
         pubId = publisherId;
     }
 
-    // 2. Mostra Interstitial a Schermo Intero
     public static void showInterstitial(Activity activity, String category) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
@@ -44,53 +56,57 @@ public class AdSwap {
         });
     }
 
-    // 3. Mostra Banner Nativo in un contenitore
-    // Mostra Banner Nativo in un contenitore riempiendo interamente lo spazio assegnato
-    public static void showBanner(Activity activity, FrameLayout container, String category) {
+    // Mostra Banner Nativo con supporto agli Stili
+    public static void showBanner(Activity activity, FrameLayout container, String category, AdStyle style) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, null);
 
+            // Passa i parametri di stile all'URL
             String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category;
+            if (style != null) {
+                url += "&bg=" + style.bgColor + "&title=" + style.titleColor + "&desc=" + style.descColor;
+            }
             webView.loadUrl(url);
 
-            // FIX CRITICO: Cambiato da WRAP_CONTENT a MATCH_PARENT per evitare il collasso a 0px.
-            // Il controllo delle dimensioni effettive spetta al FrameLayout nell'XML del publisher.
-            container.removeAllViews(); // Pulisce eventuali testi di placeholder ("Banner goes here...")
+            container.removeAllViews();
             container.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT));
+                    ViewGroup.LayoutParams.MATCH_PARENT)); // Adatta l'altezza perfettamente al contenitore!
         });
     }
 
-    // 4. Motore Interno (Non visibile agli sviluppatori)
+    // Costruttore interno della WebView
     private static void setupWebView(WebView webView, Activity activity, Dialog dialog) {
         webView.setBackgroundColor(Color.TRANSPARENT);
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
 
-        // Se l'utente clicca l'annuncio, apri il browser di sistema di Android
+        // Aggiunto WebChromeClient per supportare operazioni JS avanzate senza crash
+        webView.setWebChromeClient(new WebChromeClient());
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                Intent intent = new Intent(Intent.ACTION_VIEW, request.getUrl());
-                activity.startActivity(intent);
-                return true;
+                String clickedUrl = request.getUrl().toString();
+                // Se è un link esterno (non la pagina di Netlify), aprilo nel browser vero
+                if (clickedUrl.startsWith("http") && !clickedUrl.contains("netlify.app/ad.html")) {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(clickedUrl));
+                    activity.startActivity(intent);
+                    return true;
+                }
+                return false;
             }
         });
 
-        // Ascolta il comando Javascript per chiudere il popup
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public void closeAd() {
                 activity.runOnUiThread(() -> {
-                    if (dialog != null && dialog.isShowing()) {
-                        dialog.dismiss();
-                    }
+                    if (dialog != null && dialog.isShowing()) dialog.dismiss();
                 });
             }
         }, "AdSwapAndroid");

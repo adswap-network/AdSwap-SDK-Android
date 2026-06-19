@@ -45,6 +45,7 @@ public class AdSwap {
     }
 
     // 3. Mostra Banner Nativo in un contenitore
+    // Mostra Banner Nativo in un contenitore riempiendo interamente lo spazio assegnato
     public static void showBanner(Activity activity, FrameLayout container, String category) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
@@ -55,9 +56,12 @@ public class AdSwap {
             String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category;
             webView.loadUrl(url);
 
+            // FIX CRITICO: Cambiato da WRAP_CONTENT a MATCH_PARENT per evitare il collasso a 0px.
+            // Il controllo delle dimensioni effettive spetta al FrameLayout nell'XML del publisher.
+            container.removeAllViews(); // Pulisce eventuali testi di placeholder ("Banner goes here...")
             container.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT));
+                    ViewGroup.LayoutParams.MATCH_PARENT));
         });
     }
 

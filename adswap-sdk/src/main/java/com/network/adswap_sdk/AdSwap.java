@@ -19,21 +19,18 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
-    // Sostituisci questo URL con il link esatto della tua pagina Netlify
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
         public String bgColor = "1e293b";
         public String titleColor = "ffffff";
         public String descColor = "94a3b8";
-        public int forcedWidthDp = -1;  // -1 significa auto-adattivo
-        public int forcedHeightDp = -1; // -1 significa auto-adattivo
+        public int forcedWidthDp = -1;
+        public int forcedHeightDp = -1;
 
         public AdStyle setBackgroundColor(String hexCode) { this.bgColor = hexCode.replace("#", ""); return this; }
         public AdStyle setTitleColor(String hexCode) { this.titleColor = hexCode.replace("#", ""); return this; }
         public AdStyle setDescColor(String hexCode) { this.descColor = hexCode.replace("#", ""); return this; }
-
-        // Permette allo sviluppatore di decidere dimensioni fisse se lo desidera
         public AdStyle setWidth(int dp) { this.forcedWidthDp = dp; return this; }
         public AdStyle setHeight(int dp) { this.forcedHeightDp = dp; return this; }
     }
@@ -72,7 +69,6 @@ public class AdSwap {
             if (style != null) {
                 url += "&bg=" + style.bgColor + "&title=" + style.titleColor + "&desc=" + style.descColor;
 
-                // Se lo sviluppatore ha imposto dimensioni fisse, le applichiamo subito in pixel
                 float density = activity.getResources().getDisplayMetrics().density;
                 if (style.forcedWidthDp > 0) {
                     ViewGroup.LayoutParams p = container.getLayoutParams();
@@ -127,12 +123,15 @@ public class AdSwap {
             }
 
             @JavascriptInterface
-            public void resizeBanner(final int heightPx) {
-                // Se non sono state imposte dimensioni fisse dal codice, adatta il contenitore ai pixel del banner
+            public void resizeBanner(final int cssHeightPx) {
                 if (container != null) {
                     activity.runOnUiThread(() -> {
+                        // LA MAGIA È QUI: Trasformiamo i pixel CSS di JS in Pixel Fisici di Android!
+                        float density = activity.getResources().getDisplayMetrics().density;
+                        int physicalPixels = (int) (cssHeightPx * density);
+
                         ViewGroup.LayoutParams containerParams = container.getLayoutParams();
-                        containerParams.height = heightPx; // Forza il contenitore ad espandersi al pixel esatto
+                        containerParams.height = physicalPixels;
                         container.setLayoutParams(containerParams);
                     });
                 }

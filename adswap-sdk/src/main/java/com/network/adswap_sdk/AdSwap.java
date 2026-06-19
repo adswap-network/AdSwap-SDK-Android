@@ -19,18 +19,23 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
-    // INSERISCI QUI IL TUO SITO NETLIFY (Es. https://iltuosito.netlify.app/ad.html)
+    // Sostituisci questo URL con il link esatto della tua pagina Netlify
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
-    // Classe per gestire la grafica passata dallo sviluppatore
     public static class AdStyle {
         public String bgColor = "1e293b";
         public String titleColor = "ffffff";
         public String descColor = "94a3b8";
+        public int forcedWidthDp = -1;  // -1 significa auto-adattivo
+        public int forcedHeightDp = -1; // -1 significa auto-adattivo
 
         public AdStyle setBackgroundColor(String hexCode) { this.bgColor = hexCode.replace("#", ""); return this; }
         public AdStyle setTitleColor(String hexCode) { this.titleColor = hexCode.replace("#", ""); return this; }
         public AdStyle setDescColor(String hexCode) { this.descColor = hexCode.replace("#", ""); return this; }
+
+        // Permette allo sviluppatore di decidere dimensioni fisse se lo desidera
+        public AdStyle setWidth(int dp) { this.forcedWidthDp = dp; return this; }
+        public AdStyle setHeight(int dp) { this.forcedHeightDp = dp; return this; }
     }
 
     public static void initialize(String publisherId) {
@@ -46,7 +51,7 @@ public class AdSwap {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
             WebView webView = new WebView(activity);
-            setupWebView(webView, activity, dialog);
+            setupWebView(webView, activity, dialog, null);
 
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category;
             webView.loadUrl(url);
@@ -56,43 +61,54 @@ public class AdSwap {
         });
     }
 
-    // Mostra Banner Nativo con supporto agli Stili
     public static void showBanner(Activity activity, FrameLayout container, String category, AdStyle style) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
             WebView webView = new WebView(activity);
-            setupWebView(webView, activity, null);
+            setupWebView(webView, activity, null, container);
 
-            // Passa i parametri di stile all'URL
             String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category;
             if (style != null) {
                 url += "&bg=" + style.bgColor + "&title=" + style.titleColor + "&desc=" + style.descColor;
+
+                // Se lo sviluppatore ha imposto dimensioni fisse, le applichiamo subito in pixel
+                float density = activity.getResources().getDisplayMetrics().density;
+                if (style.forcedWidthDp > 0) {
+                    ViewGroup.LayoutParams p = container.getLayoutParams();
+                    p.width = (int) (style.forcedWidthDp * density);
+                    container.setLayoutParams(p);
+                }
+                if (style.forcedHeightDp > 0) {
+                    ViewGroup.LayoutParams p = container.getLayoutParams();
+                    p.height = (int) (style.forcedHeightDp * density);
+                    container.setLayoutParams(p);
+                }
             }
+
             webView.loadUrl(url);
 
             container.removeAllViews();
             container.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT)); // Adatta l'altezza perfettamente al contenitore!
+                    ViewGroup.LayoutParams.MATCH_PARENT));
         });
     }
 
-    // Costruttore interno della WebView
-    private static void setupWebView(WebView webView, Activity activity, Dialog dialog) {
+    private static void setupWebView(WebView webView, Activity activity, Dialog dialog, FrameLayout container) {
         webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.setVerticalScrollBarEnabled(false);
+        webView.setHorizontalScrollBarEnabled(false);
+
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-
-        // Aggiunto WebChromeClient per supportare operazioni JS avanzate senza crash
         webView.setWebChromeClient(new WebChromeClient());
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String clickedUrl = request.getUrl().toString();
-                // Se è un link esterno (non la pagina di Netlify), aprilo nel browser vero
                 if (clickedUrl.startsWith("http") && !clickedUrl.contains("netlify.app/ad.html")) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(clickedUrl));
                     activity.startActivity(intent);
@@ -108,6 +124,18 @@ public class AdSwap {
                 activity.runOnUiThread(() -> {
                     if (dialog != null && dialog.isShowing()) dialog.dismiss();
                 });
+            }
+
+            @JavascriptInterface
+            public void resizeBanner(final int heightPx) {
+                // Se non sono state imposte dimensioni fisse dal codice, adatta il contenitore ai pixel del banner
+                if (container != null) {
+                    activity.runOnUiThread(() -> {
+                        ViewGroup.LayoutParams containerParams = container.getLayoutParams();
+                        containerParams.height = heightPx; // Forza il contenitore ad espandersi al pixel esatto
+                        container.setLayoutParams(containerParams);
+                    });
+                }
             }
         }, "AdSwapAndroid");
     }

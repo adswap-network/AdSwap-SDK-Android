@@ -12,7 +12,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0.4"
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -45,6 +45,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    //implementation("com.github.adswap-network:AdSwap-SDK-Android:1.0.3")
+    //implementation("com.github.adswap-network:AdSwap-SDK-Android:1.0.4")
     implementation(project(":adswap-sdk"))
 }

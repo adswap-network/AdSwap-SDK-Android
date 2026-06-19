@@ -19,12 +19,13 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
+    // Incolla qui il link di Netlify aggiornato
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
-        public String bgColor = "1e293b";
-        public String titleColor = "ffffff";
-        public String descColor = "94a3b8";
+        public String bgColor = null;    // Di default null -> Trasparente
+        public String titleColor = null; // Di default null -> Stile di sistema
+        public String descColor = null;  // Di default null -> Stile di sistema
         public int forcedWidthDp = -1;
         public int forcedHeightDp = -1;
 
@@ -50,7 +51,7 @@ public class AdSwap {
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, dialog, null);
 
-            String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category;
+            String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=android";
             webView.loadUrl(url);
 
             dialog.setContentView(webView);
@@ -65,9 +66,13 @@ public class AdSwap {
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, null, container);
 
-            String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category;
+            String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category + "&platform=android";
+
+            // Appende i parametri all'URL solo ed esclusivamente se valorizzati dallo sviluppatore
             if (style != null) {
-                url += "&bg=" + style.bgColor + "&title=" + style.titleColor + "&desc=" + style.descColor;
+                if (style.bgColor != null) url += "&bg=" + style.bgColor;
+                if (style.titleColor != null) url += "&title=" + style.titleColor;
+                if (style.descColor != null) url += "&desc=" + style.descColor;
 
                 float density = activity.getResources().getDisplayMetrics().density;
                 if (style.forcedWidthDp > 0) {
@@ -92,7 +97,9 @@ public class AdSwap {
     }
 
     private static void setupWebView(WebView webView, Activity activity, Dialog dialog, FrameLayout container) {
+        // Garantisce la trasparenza del contenitore nativo Android prima del caricamento della pagina
         webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null); // Ottimizza le prestazioni di rendering
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
 
@@ -105,7 +112,7 @@ public class AdSwap {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String clickedUrl = request.getUrl().toString();
-                if (clickedUrl.startsWith("http") && !clickedUrl.contains("netlify.app/ad.html")) {
+                if (clickedUrl.startsWith("http") && !clickedUrl.contains("ad.html")) {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(clickedUrl));
                     activity.startActivity(intent);
                     return true;
@@ -126,7 +133,6 @@ public class AdSwap {
             public void resizeBanner(final int cssHeightPx) {
                 if (container != null) {
                     activity.runOnUiThread(() -> {
-                        // LA MAGIA È QUI: Trasformiamo i pixel CSS di JS in Pixel Fisici di Android!
                         float density = activity.getResources().getDisplayMetrics().density;
                         int physicalPixels = (int) (cssHeightPx * density);
 

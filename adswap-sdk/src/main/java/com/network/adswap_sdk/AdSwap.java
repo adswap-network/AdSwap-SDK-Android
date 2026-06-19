@@ -19,21 +19,17 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
-    // Incolla qui il link di Netlify aggiornato
+    // SOSTITUISCI CON IL TUO LINK NETLIFY
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
-        public String bgColor = null;    // Di default null -> Trasparente
-        public String titleColor = null; // Di default null -> Stile di sistema
-        public String descColor = null;  // Di default null -> Stile di sistema
-        public int forcedWidthDp = -1;
-        public int forcedHeightDp = -1;
+        public String bgColor = null;
+        public String titleColor = null;
+        public String descColor = null;
 
         public AdStyle setBackgroundColor(String hexCode) { this.bgColor = hexCode.replace("#", ""); return this; }
         public AdStyle setTitleColor(String hexCode) { this.titleColor = hexCode.replace("#", ""); return this; }
         public AdStyle setDescColor(String hexCode) { this.descColor = hexCode.replace("#", ""); return this; }
-        public AdStyle setWidth(int dp) { this.forcedWidthDp = dp; return this; }
-        public AdStyle setHeight(int dp) { this.forcedHeightDp = dp; return this; }
     }
 
     public static void initialize(String publisherId) {
@@ -49,7 +45,7 @@ public class AdSwap {
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
             WebView webView = new WebView(activity);
-            setupWebView(webView, activity, dialog, null);
+            setupWebView(webView, activity, dialog);
 
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=android";
             webView.loadUrl(url);
@@ -64,42 +60,27 @@ public class AdSwap {
 
         activity.runOnUiThread(() -> {
             WebView webView = new WebView(activity);
-            setupWebView(webView, activity, null, container);
+            setupWebView(webView, activity, null);
 
             String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category + "&platform=android";
-
-            // Appende i parametri all'URL solo ed esclusivamente se valorizzati dallo sviluppatore
             if (style != null) {
                 if (style.bgColor != null) url += "&bg=" + style.bgColor;
                 if (style.titleColor != null) url += "&title=" + style.titleColor;
                 if (style.descColor != null) url += "&desc=" + style.descColor;
-
-                float density = activity.getResources().getDisplayMetrics().density;
-                if (style.forcedWidthDp > 0) {
-                    ViewGroup.LayoutParams p = container.getLayoutParams();
-                    p.width = (int) (style.forcedWidthDp * density);
-                    container.setLayoutParams(p);
-                }
-                if (style.forcedHeightDp > 0) {
-                    ViewGroup.LayoutParams p = container.getLayoutParams();
-                    p.height = (int) (style.forcedHeightDp * density);
-                    container.setLayoutParams(p);
-                }
             }
 
             webView.loadUrl(url);
 
             container.removeAllViews();
+            // L'SDK riempie esattamente il FrameLayout, senza cercare di cambiarne le dimensioni!
             container.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
         });
     }
 
-    private static void setupWebView(WebView webView, Activity activity, Dialog dialog, FrameLayout container) {
-        // Garantisce la trasparenza del contenitore nativo Android prima del caricamento della pagina
+    private static void setupWebView(WebView webView, Activity activity, Dialog dialog) {
         webView.setBackgroundColor(Color.TRANSPARENT);
-        webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null); // Ottimizza le prestazioni di rendering
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
 
@@ -127,20 +108,6 @@ public class AdSwap {
                 activity.runOnUiThread(() -> {
                     if (dialog != null && dialog.isShowing()) dialog.dismiss();
                 });
-            }
-
-            @JavascriptInterface
-            public void resizeBanner(final int cssHeightPx) {
-                if (container != null) {
-                    activity.runOnUiThread(() -> {
-                        float density = activity.getResources().getDisplayMetrics().density;
-                        int physicalPixels = (int) (cssHeightPx * density);
-
-                        ViewGroup.LayoutParams containerParams = container.getLayoutParams();
-                        containerParams.height = physicalPixels;
-                        container.setLayoutParams(containerParams);
-                    });
-                }
             }
         }, "AdSwapAndroid");
     }

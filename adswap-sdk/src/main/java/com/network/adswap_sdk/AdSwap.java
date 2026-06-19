@@ -18,9 +18,7 @@ import android.widget.FrameLayout;
 
 public class AdSwap {
     private static String pubId = null;
-
-    // Inserisci l'URL esatto della tua pagina Netlify
-    private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
+    private static final String BASE_URL = "https://adswap.netlify.app/ad.html"; // Controlla che sia giusto!
 
     public static class AdStyle {
         public String bgColor = null;
@@ -42,8 +40,7 @@ public class AdSwap {
         activity.runOnUiThread(() -> {
             final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-
-            // FIX SCUDO: Sfondo scuro di caricamento semitrasparente per dare feedback visivo all'utente
+            // Sfondo scuro per mascherare il caricamento
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.parseColor("#E60F172A")));
 
             WebView webView = new WebView(activity);
@@ -74,7 +71,7 @@ public class AdSwap {
             webView.loadUrl(url);
 
             container.removeAllViews();
-            // La WebView si modella rigidamente sulle dimensioni imposte dall'app ospite (i tuoi 80dp)
+            // Inserimento rigido e forzato al 100% del contenitore dello sviluppatore
             container.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
@@ -90,6 +87,11 @@ public class AdSwap {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+
+        // I DUE COMANDI CRITICI PER IMPEDIRE ALL'HTML DI USCIRE DAI BORDI NATIVI
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+
         webView.setWebChromeClient(new WebChromeClient());
 
         webView.setWebViewClient(new WebViewClient() {

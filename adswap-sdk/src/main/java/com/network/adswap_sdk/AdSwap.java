@@ -21,7 +21,6 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
-    // IL TUO URL NETLIFY
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
@@ -42,10 +41,10 @@ public class AdSwap {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            // FIX INTERSTITIAL: Usare Theme_Translucent per garantire la trasparenza senza rompere il fullscreen
-            final Dialog dialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
+            // RIPRISTINATO ALLA VERSIONE 9: Tema solido, evita gli "scudi invisibili"
+            final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK)); // Sfondo nero pronto per ospitare la grafica TikTok
 
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, dialog);
@@ -92,17 +91,15 @@ public class AdSwap {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
 
-        // ==========================================
-        // FIX SEGNALAZIONE: Popup Nativo Android Reale
-        // ==========================================
+        // Questo fa apparire il popup di segnalazione nativo quando clicchi la bandierina!
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
                 new AlertDialog.Builder(activity)
-                        .setTitle("Report Ad")
+                        .setTitle("Segnala Annuncio")
                         .setMessage(message)
-                        .setPositiveButton("Confirm", (d, which) -> result.confirm())
-                        .setNegativeButton("Cancel", (d, which) -> result.cancel())
+                        .setPositiveButton("Conferma", (d, which) -> result.confirm())
+                        .setNegativeButton("Annulla", (d, which) -> result.cancel())
                         .setCancelable(false)
                         .show();
                 return true;

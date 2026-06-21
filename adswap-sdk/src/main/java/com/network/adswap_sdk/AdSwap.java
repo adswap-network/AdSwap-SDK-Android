@@ -1,6 +1,7 @@
 package com.network.adswap_sdk;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
@@ -9,6 +10,7 @@ import android.net.Uri;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -41,24 +43,21 @@ public class AdSwap {
         activity.runOnUiThread(() -> {
             final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
+            // FIX INTERSTITIAL: Inserito in un FrameLayout per garantire le dimensioni
+            FrameLayout frame = new FrameLayout(activity);
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, dialog);
 
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=android";
             webView.loadUrl(url);
 
-            // FORZATURA A SCHERMO INTERO ASSOLUTO
-            dialog.setContentView(webView, new ViewGroup.LayoutParams(
+            frame.addView(webView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
 
-            Window window = dialog.getWindow();
-            if (window != null) {
-                window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-                window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT)); // Trasparente perché l'HTML ha già lo sfondo scuro/blur!
-            }
-
+            dialog.setContentView(frame);
             dialog.show();
         });
     }
@@ -88,14 +87,29 @@ public class AdSwap {
 
     private static void setupWebView(WebView webView, Activity activity, final Dialog dialog) {
         webView.setBackgroundColor(Color.TRANSPARENT);
-        webView.setLayerType(WebView.LAYER_TYPE_HARDWARE, null);
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        webView.setWebChromeClient(new WebChromeClient());
+
+        // ==========================================
+        // FIX SEGNALAZIONE: Popup Nativo Android
+        // ==========================================
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(activity)
+                        .setTitle("Report Ad")
+                        .setMessage(message) // Il messaggio originale del tuo script JS
+                        .setPositiveButton("Confirm", (d, which) -> result.confirm())
+                        .setNegativeButton("Cancel", (d, which) -> result.cancel())
+                        .setCancelable(false)
+                        .show();
+                return true; // Diciamo alla WebView che gestiamo noi il popup
+            }
+        });
 
         webView.setWebViewClient(new WebViewClient() {
             @Override

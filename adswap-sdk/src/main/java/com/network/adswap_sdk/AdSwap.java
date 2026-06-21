@@ -1,4 +1,4 @@
-package com.network.adswap_sdk;
+package com.network.adswap_sdk; // <-- Assicurati che corrisponda al tuo pacchetto
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -21,6 +21,7 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
+    // INSERISCI QUI IL TUO URL NETLIFY AGGIORNATO
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
@@ -41,10 +42,10 @@ public class AdSwap {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            // RIPRISTINATO ALLA VERSIONE 9: Tema solido, evita gli "scudi invisibili"
+            // RIPRISTINATO ALLA VERSIONE FUNZIONANTE: Struttura solida senza scudi invisibili
             final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK)); // Sfondo nero pronto per ospitare la grafica TikTok
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
 
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, dialog);
@@ -91,13 +92,13 @@ public class AdSwap {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
 
-        // Questo fa apparire il popup di segnalazione nativo quando clicchi la bandierina!
+        // INTERCETTAZIONE CONFIRM: Mostra la finestra nativa di Android prima di inviare il tracciamento
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
                 new AlertDialog.Builder(activity)
                         .setTitle("Segnala Annuncio")
-                        .setMessage(message)
+                        .setMessage("Vuoi segnalare questo annuncio per contenuti inappropriati?")
                         .setPositiveButton("Conferma", (d, which) -> result.confirm())
                         .setNegativeButton("Annulla", (d, which) -> result.cancel())
                         .setCancelable(false)

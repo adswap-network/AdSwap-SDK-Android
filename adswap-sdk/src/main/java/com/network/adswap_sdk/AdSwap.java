@@ -21,6 +21,7 @@ import android.widget.FrameLayout;
 public class AdSwap {
     private static String pubId = null;
 
+    // IL TUO URL NETLIFY
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
 
     public static class AdStyle {
@@ -41,23 +42,20 @@ public class AdSwap {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+            // FIX INTERSTITIAL: Usare Theme_Translucent per garantire la trasparenza senza rompere il fullscreen
+            final Dialog dialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-            // FIX INTERSTITIAL: Inserito in un FrameLayout per garantire le dimensioni
-            FrameLayout frame = new FrameLayout(activity);
             WebView webView = new WebView(activity);
             setupWebView(webView, activity, dialog);
 
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=android";
             webView.loadUrl(url);
 
-            frame.addView(webView, new FrameLayout.LayoutParams(
+            dialog.setContentView(webView, new ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
-
-            dialog.setContentView(frame);
             dialog.show();
         });
     }
@@ -95,19 +93,19 @@ public class AdSwap {
         settings.setDomStorageEnabled(true);
 
         // ==========================================
-        // FIX SEGNALAZIONE: Popup Nativo Android
+        // FIX SEGNALAZIONE: Popup Nativo Android Reale
         // ==========================================
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
                 new AlertDialog.Builder(activity)
                         .setTitle("Report Ad")
-                        .setMessage(message) // Il messaggio originale del tuo script JS
+                        .setMessage(message)
                         .setPositiveButton("Confirm", (d, which) -> result.confirm())
                         .setNegativeButton("Cancel", (d, which) -> result.cancel())
                         .setCancelable(false)
                         .show();
-                return true; // Diciamo alla WebView che gestiamo noi il popup
+                return true;
             }
         });
 

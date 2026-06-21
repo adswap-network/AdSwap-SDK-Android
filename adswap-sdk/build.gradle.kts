@@ -51,7 +51,7 @@ publishing {
             // Coordinate esatte per GitHub e JitPack
             groupId = "com.github.adswap-network"
             artifactId = "adswap-sdk"
-            version = "1.0.11" // Versione aggiornata
+            version = "1.0.12" // Versione aggiornata
 
             // Avvolgiamo solo l'estrazione del componente nell'afterEvaluate
             afterEvaluate {

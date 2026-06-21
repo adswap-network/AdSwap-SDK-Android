@@ -1,4 +1,4 @@
-package com.network.adswap_sdk; // <-- Assicurati che corrisponda al tuo pacchetto
+package com.network.adswap_sdk;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -42,7 +42,6 @@ public class AdSwap {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            // RIPRISTINATO ALLA VERSIONE FUNZIONANTE: Struttura solida senza scudi invisibili
             final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
             dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
@@ -92,15 +91,14 @@ public class AdSwap {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
 
-        // INTERCETTAZIONE CONFIRM: Mostra la finestra nativa di Android prima di inviare il tracciamento
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
                 new AlertDialog.Builder(activity)
-                        .setTitle("Segnala Annuncio")
-                        .setMessage("Vuoi segnalare questo annuncio per contenuti inappropriati?")
-                        .setPositiveButton("Conferma", (d, which) -> result.confirm())
-                        .setNegativeButton("Annulla", (d, which) -> result.cancel())
+                        .setTitle("Report Ad")
+                        .setMessage(message) // Questo prenderà "Do you want to report this ad for inappropriate content?"
+                        .setPositiveButton("Confirm", (d, which) -> result.confirm())
+                        .setNegativeButton("Cancel", (d, which) -> result.cancel())
                         .setCancelable(false)
                         .show();
                 return true;

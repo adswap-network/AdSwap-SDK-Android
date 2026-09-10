@@ -25,6 +25,7 @@ public class AdSwap {
 
     private static FrameLayout overlayContainer;
     private static WebView interstitialWebView;
+    private static android.app.Dialog interstitialDialog;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     // =========================================================
@@ -72,60 +73,51 @@ public class AdSwap {
         activity.runOnUiThread(() -> {
             destroyInterstitial();
 
-            ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
-
             overlayContainer = new FrameLayout(activity);
             overlayContainer.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
             ));
 
-            // 🔥 FIX 1: Non usiamo View.GONE per non far spegnere Chromium.
-            // Lo mettiamo su VISIBLE ma totalmente trasparente (Alpha 0).
+            // Inizialmente trasparente e invisibile per Chromium
             overlayContainer.setBackgroundColor(Color.TRANSPARENT);
             overlayContainer.setAlpha(0f);
             overlayContainer.setVisibility(View.VISIBLE);
 
-            // 🔥 FIX 2: Z-INDEX ESTREMO.
-            // Posiziona il container sopra qualsiasi CardView o Toolbar della tua app.
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                overlayContainer.setTranslationZ(9999f);
-            }
-
-            overlayContainer.setOnApplyWindowInsetsListener((v, insets) -> {
-                v.setPadding(
-                        insets.getSystemWindowInsetLeft(),
-                        insets.getSystemWindowInsetTop(),
-                        insets.getSystemWindowInsetRight(),
-                        insets.getSystemWindowInsetBottom()
-                );
-                return insets;
-            });
-
             interstitialWebView = new WebView(activity);
             setupWebView(interstitialWebView, activity, true);
 
-            // ✅ FIX 3: Rimosso "geo=global" forzato
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=" + platform;
             interstitialWebView.loadUrl(url);
 
             overlayContainer.addView(interstitialWebView);
-            root.addView(overlayContainer);
-            overlayContainer.requestApplyInsets();
+
+            // Crea un Dialog a schermo intero senza titolo
+            interstitialDialog = new android.app.Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
+            interstitialDialog.setContentView(overlayContainer);
+            // Blocca la chiusura tappando fuori o col tasto back fisico: l'utente deve premere la X dell'annuncio
+            interstitialDialog.setCancelable(false);
+
+            if (!activity.isFinishing()) {
+                interstitialDialog.show();
+            }
         });
     }
 
     private static void destroyInterstitial() {
         try {
+            if (interstitialDialog != null) {
+                interstitialDialog.dismiss();
+                interstitialDialog = null;
+            }
+
             if (overlayContainer != null) {
-                overlayContainer.animate().cancel(); // Ferma eventuali animazioni di dissolvenza in corso
+                overlayContainer.animate().cancel();
                 overlayContainer.setVisibility(View.GONE);
 
                 ViewGroup parent = (ViewGroup) overlayContainer.getParent();
                 if (parent != null) {
                     parent.removeView(overlayContainer);
-                    parent.invalidate();
-                    parent.requestLayout();
                 }
                 overlayContainer.removeAllViews();
                 overlayContainer = null;
@@ -139,7 +131,6 @@ public class AdSwap {
                 interstitialWebView = null;
             }
 
-            // 🔥 FIX 4: LANCIO DELLA CALLBACK
             if (currentCallback != null) {
                 currentCallback.onAdClosed();
                 currentCallback = null;
@@ -178,7 +169,6 @@ public class AdSwap {
             WebView bannerWebView = new WebView(activity);
             setupWebView(bannerWebView, activity, false);
 
-            // ✅ FIX 5: Rimosso "geo=global" forzato
             String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category + "&platform=" + platform;
 
             if (style != null) {
@@ -204,7 +194,6 @@ public class AdSwap {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        // Fondamentale per WebView moderne: permette di caricare asset se HTTPS/HTTP si mescolano
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
@@ -243,15 +232,12 @@ public class AdSwap {
             public void adLoaded() {
                 if (isInterstitial && overlayContainer != null) {
                     MAIN.post(() -> {
-                        // 🔥 FIX 6: Animazione in entrata.
-                        // Quando il JS dice "ok, ho renderizzato", coloriamo lo sfondo e facciamo la dissolvenza a 1
                         overlayContainer.setBackgroundColor(Color.parseColor("#020617"));
                         overlayContainer.animate().alpha(1f).setDuration(300).start();
                     });
                 }
             }
 
-            // GESTORE DEL POPUP SEGNALAZIONE NATIVO MODERNO PER IL BANNER
             @JavascriptInterface
             public void reportAd(String adId) {
                 MAIN.post(() -> {
@@ -260,7 +246,7 @@ public class AdSwap {
                     layout.setPadding(64, 64, 64, 64);
 
                     android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-                    bg.setColor(Color.parseColor("#0f172a")); // Tema scuro coordinato all'interstitial
+                    bg.setColor(Color.parseColor("#0f172a"));
                     bg.setCornerRadius(44);
                     layout.setBackground(bg);
 

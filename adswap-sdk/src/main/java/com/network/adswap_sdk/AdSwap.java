@@ -83,7 +83,7 @@ public class AdSwap {
             interstitialWebView = new WebView(activity);
             setupWebView(interstitialWebView, activity, true);
 
-            // ✅ FIX 1: Risolto il bug "&platform=platform".
+            // ✅ FIX 1: Risolto il bug "&platform=platform". 
             // ✅ FIX 2: Rimosso "&geo=global". L'SDK JS e Cloudflare Workers gestiranno la geolocalizzazione automatica.
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=" + platform;
             interstitialWebView.loadUrl(url);

@@ -27,6 +27,14 @@ public class AdSwap {
     private static WebView interstitialWebView;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
+    // =========================================================
+    // CALLBACK PER INTERSTITIAL
+    // =========================================================
+    public interface InterstitialCallback {
+        void onAdClosed();
+    }
+    private static InterstitialCallback currentCallback = null;
+
     public static class AdStyle {
         public String bgColor = null;
         public String titleColor = null;
@@ -46,15 +54,20 @@ public class AdSwap {
     }
 
     // =========================================================
-    // INTERSTITIAL METODI
+    // INTERSTITIAL METODI (OVERLOADING)
     // =========================================================
     public static void showInterstitial(Activity activity, String category) {
-        // Usa la piattaforma android di default
-        showInterstitial(activity, category, "android");
+        showInterstitial(activity, category, "android", null);
     }
 
-    public static void showInterstitial(Activity activity, String category, String platform) {
+    public static void showInterstitial(Activity activity, String category, InterstitialCallback callback) {
+        showInterstitial(activity, category, "android", callback);
+    }
+
+    public static void showInterstitial(Activity activity, String category, String platform, InterstitialCallback callback) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
+
+        currentCallback = callback; // Salva la callback per lanciarla alla chiusura
 
         activity.runOnUiThread(() -> {
             destroyInterstitial();
@@ -67,8 +80,17 @@ public class AdSwap {
                     ViewGroup.LayoutParams.MATCH_PARENT
             ));
 
-            overlayContainer.setBackgroundColor(Color.parseColor("#020617"));
-            overlayContainer.setVisibility(View.GONE);
+            // 🔥 FIX 1: Non usiamo View.GONE per non far spegnere Chromium.
+            // Lo mettiamo su VISIBLE ma totalmente trasparente (Alpha 0).
+            overlayContainer.setBackgroundColor(Color.TRANSPARENT);
+            overlayContainer.setAlpha(0f);
+            overlayContainer.setVisibility(View.VISIBLE);
+
+            // 🔥 FIX 2: Z-INDEX ESTREMO.
+            // Posiziona il container sopra qualsiasi CardView o Toolbar della tua app.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                overlayContainer.setTranslationZ(9999f);
+            }
 
             overlayContainer.setOnApplyWindowInsetsListener((v, insets) -> {
                 v.setPadding(
@@ -83,8 +105,7 @@ public class AdSwap {
             interstitialWebView = new WebView(activity);
             setupWebView(interstitialWebView, activity, true);
 
-            // ✅ FIX 1: Risolto il bug "&platform=platform". 
-            // ✅ FIX 2: Rimosso "&geo=global". L'SDK JS e Cloudflare Workers gestiranno la geolocalizzazione automatica.
+            // ✅ FIX 3: Rimosso "geo=global" forzato
             String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=" + platform;
             interstitialWebView.loadUrl(url);
 
@@ -97,7 +118,7 @@ public class AdSwap {
     private static void destroyInterstitial() {
         try {
             if (overlayContainer != null) {
-                overlayContainer.setBackgroundColor(Color.TRANSPARENT);
+                overlayContainer.animate().cancel(); // Ferma eventuali animazioni di dissolvenza in corso
                 overlayContainer.setVisibility(View.GONE);
 
                 ViewGroup parent = (ViewGroup) overlayContainer.getParent();
@@ -117,6 +138,13 @@ public class AdSwap {
                 interstitialWebView.destroy();
                 interstitialWebView = null;
             }
+
+            // 🔥 FIX 4: LANCIO DELLA CALLBACK
+            if (currentCallback != null) {
+                currentCallback.onAdClosed();
+                currentCallback = null;
+            }
+
         } catch (Exception e) {
             android.util.Log.e("AdSwapSDK", "Errore chiusura interstitial", e);
         }
@@ -126,7 +154,6 @@ public class AdSwap {
     // BANNER METODI
     // =========================================================
     public static void showBanner(Activity activity, FrameLayout container, String category, AdStyle style) {
-        // Usa la piattaforma android di default
         showBanner(activity, container, category, "android", style);
     }
 
@@ -151,7 +178,7 @@ public class AdSwap {
             WebView bannerWebView = new WebView(activity);
             setupWebView(bannerWebView, activity, false);
 
-            // ✅ FIX 3: Rimosso "&geo=global". L'SDK JS e Cloudflare Workers gestiranno la geolocalizzazione automatica.
+            // ✅ FIX 5: Rimosso "geo=global" forzato
             String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category + "&platform=" + platform;
 
             if (style != null) {
@@ -177,6 +204,10 @@ public class AdSwap {
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        // Fondamentale per WebView moderne: permette di caricare asset se HTTPS/HTTP si mescolano
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -211,7 +242,12 @@ public class AdSwap {
             @JavascriptInterface
             public void adLoaded() {
                 if (isInterstitial && overlayContainer != null) {
-                    MAIN.post(() -> overlayContainer.setVisibility(View.VISIBLE));
+                    MAIN.post(() -> {
+                        // 🔥 FIX 6: Animazione in entrata.
+                        // Quando il JS dice "ok, ho renderizzato", coloriamo lo sfondo e facciamo la dissolvenza a 1
+                        overlayContainer.setBackgroundColor(Color.parseColor("#020617"));
+                        overlayContainer.animate().alpha(1f).setDuration(300).start();
+                    });
                 }
             }
 

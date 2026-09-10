@@ -2,13 +2,13 @@ package com.network.adswap_sdk;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
@@ -17,72 +17,159 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 public class AdSwap {
     private static String pubId = null;
-
-    // INSERISCI QUI IL TUO URL NETLIFY AGGIORNATO
     private static final String BASE_URL = "https://adswap.netlify.app/ad.html";
+
+    private static FrameLayout overlayContainer;
+    private static WebView interstitialWebView;
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     public static class AdStyle {
         public String bgColor = null;
         public String titleColor = null;
         public String descColor = null;
+        public String borderColor = null;
+        public String borderRadius = "0px";
 
         public AdStyle setBackgroundColor(String hexCode) { this.bgColor = hexCode.replace("#", ""); return this; }
         public AdStyle setTitleColor(String hexCode) { this.titleColor = hexCode.replace("#", ""); return this; }
         public AdStyle setDescColor(String hexCode) { this.descColor = hexCode.replace("#", ""); return this; }
+        public AdStyle setBorderColor(String hexCode) { this.borderColor = hexCode.replace("#", ""); return this; }
+        public AdStyle setBorderRadius(String radius) { this.borderRadius = radius; return this; }
     }
 
     public static void initialize(String publisherId) {
         pubId = publisherId;
     }
 
+    // =========================================================
+    // INTERSTITIAL METODI
+    // =========================================================
     public static void showInterstitial(Activity activity, String category) {
+        // Usa la piattaforma android di default
+        showInterstitial(activity, category, "android");
+    }
+
+    public static void showInterstitial(Activity activity, String category, String platform) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            final Dialog dialog = new Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
-            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+            destroyInterstitial();
 
-            WebView webView = new WebView(activity);
-            setupWebView(webView, activity, dialog);
+            ViewGroup root = (ViewGroup) activity.getWindow().getDecorView();
 
-            String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=android";
-            webView.loadUrl(url);
-
-            dialog.setContentView(webView, new ViewGroup.LayoutParams(
+            overlayContainer = new FrameLayout(activity);
+            overlayContainer.setLayoutParams(new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT));
-            dialog.show();
+                    ViewGroup.LayoutParams.MATCH_PARENT
+            ));
+
+            overlayContainer.setBackgroundColor(Color.parseColor("#020617"));
+            overlayContainer.setVisibility(View.GONE);
+
+            overlayContainer.setOnApplyWindowInsetsListener((v, insets) -> {
+                v.setPadding(
+                        insets.getSystemWindowInsetLeft(),
+                        insets.getSystemWindowInsetTop(),
+                        insets.getSystemWindowInsetRight(),
+                        insets.getSystemWindowInsetBottom()
+                );
+                return insets;
+            });
+
+            interstitialWebView = new WebView(activity);
+            setupWebView(interstitialWebView, activity, true);
+
+            // ✅ FIX 1: Risolto il bug "&platform=platform". 
+            // ✅ FIX 2: Rimosso "&geo=global". L'SDK JS e Cloudflare Workers gestiranno la geolocalizzazione automatica.
+            String url = BASE_URL + "?pubId=" + pubId + "&format=interstitial&category=" + category + "&platform=" + platform;
+            interstitialWebView.loadUrl(url);
+
+            overlayContainer.addView(interstitialWebView);
+            root.addView(overlayContainer);
+            overlayContainer.requestApplyInsets();
         });
     }
 
+    private static void destroyInterstitial() {
+        try {
+            if (overlayContainer != null) {
+                overlayContainer.setBackgroundColor(Color.TRANSPARENT);
+                overlayContainer.setVisibility(View.GONE);
+
+                ViewGroup parent = (ViewGroup) overlayContainer.getParent();
+                if (parent != null) {
+                    parent.removeView(overlayContainer);
+                    parent.invalidate();
+                    parent.requestLayout();
+                }
+                overlayContainer.removeAllViews();
+                overlayContainer = null;
+            }
+
+            if (interstitialWebView != null) {
+                interstitialWebView.stopLoading();
+                interstitialWebView.loadUrl("about:blank");
+                interstitialWebView.clearHistory();
+                interstitialWebView.destroy();
+                interstitialWebView = null;
+            }
+        } catch (Exception e) {
+            android.util.Log.e("AdSwapSDK", "Errore chiusura interstitial", e);
+        }
+    }
+
+    // =========================================================
+    // BANNER METODI
+    // =========================================================
     public static void showBanner(Activity activity, FrameLayout container, String category, AdStyle style) {
+        // Usa la piattaforma android di default
+        showBanner(activity, container, category, "android", style);
+    }
+
+    public static void showBanner(Activity activity, FrameLayout container, String category, String platform, AdStyle style) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
         activity.runOnUiThread(() -> {
-            WebView webView = new WebView(activity);
-            setupWebView(webView, activity, null);
+            if (container.getChildCount() > 0) {
+                for (int i = 0; i < container.getChildCount(); i++) {
+                    android.view.View v = container.getChildAt(i);
+                    if (v instanceof WebView) {
+                        container.removeView(v);
+                        ((WebView) v).stopLoading();
+                        ((WebView) v).clearHistory();
+                        ((WebView) v).removeAllViews();
+                        ((WebView) v).destroy();
+                    }
+                }
+            }
+            container.removeAllViews();
 
-            String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category + "&platform=android";
+            WebView bannerWebView = new WebView(activity);
+            setupWebView(bannerWebView, activity, false);
+
+            // ✅ FIX 3: Rimosso "&geo=global". L'SDK JS e Cloudflare Workers gestiranno la geolocalizzazione automatica.
+            String url = BASE_URL + "?pubId=" + pubId + "&format=banner&category=" + category + "&platform=" + platform;
+
             if (style != null) {
                 if (style.bgColor != null) url += "&bg=" + style.bgColor;
                 if (style.titleColor != null) url += "&title=" + style.titleColor;
                 if (style.descColor != null) url += "&desc=" + style.descColor;
+                if (style.borderColor != null) url += "&border=" + style.borderColor;
+                if (style.borderRadius != null) url += "&radius=" + style.borderRadius;
             }
 
-            webView.loadUrl(url);
-
-            container.removeAllViews();
-            container.addView(webView, new FrameLayout.LayoutParams(
+            bannerWebView.loadUrl(url);
+            container.addView(bannerWebView, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT));
         });
     }
 
-    private static void setupWebView(WebView webView, Activity activity, final Dialog dialog) {
+    private static void setupWebView(WebView webView, Activity activity, boolean isInterstitial) {
         webView.setBackgroundColor(Color.TRANSPARENT);
         webView.setVerticalScrollBarEnabled(false);
         webView.setHorizontalScrollBarEnabled(false);
@@ -94,13 +181,6 @@ public class AdSwap {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
-                new AlertDialog.Builder(activity)
-                        .setTitle("Report Ad")
-                        .setMessage(message) // Questo prenderà "Do you want to report this ad for inappropriate content?"
-                        .setPositiveButton("Confirm", (d, which) -> result.confirm())
-                        .setNegativeButton("Cancel", (d, which) -> result.cancel())
-                        .setCancelable(false)
-                        .show();
                 return true;
             }
         });
@@ -110,8 +190,12 @@ public class AdSwap {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String clickedUrl = request.getUrl().toString();
                 if (clickedUrl.startsWith("http") && !clickedUrl.contains("ad.html")) {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(clickedUrl));
-                    activity.startActivity(intent);
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(clickedUrl));
+                        activity.startActivity(intent);
+                    } catch (Exception e) {
+                        android.util.Log.e("AdSwapSDK", "Impossibile aprire il browser per l'URL: " + clickedUrl, e);
+                    }
                     return true;
                 }
                 return false;
@@ -121,10 +205,94 @@ public class AdSwap {
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public void closeAd() {
-                activity.runOnUiThread(() -> {
-                    if (dialog != null && dialog.isShowing()) {
-                        dialog.dismiss();
+                if (isInterstitial) MAIN.post(() -> destroyInterstitial());
+            }
+
+            @JavascriptInterface
+            public void adLoaded() {
+                if (isInterstitial && overlayContainer != null) {
+                    MAIN.post(() -> overlayContainer.setVisibility(View.VISIBLE));
+                }
+            }
+
+            // GESTORE DEL POPUP SEGNALAZIONE NATIVO MODERNO PER IL BANNER
+            @JavascriptInterface
+            public void reportAd(String adId) {
+                MAIN.post(() -> {
+                    android.widget.LinearLayout layout = new android.widget.LinearLayout(activity);
+                    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    layout.setPadding(64, 64, 64, 64);
+
+                    android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+                    bg.setColor(Color.parseColor("#0f172a")); // Tema scuro coordinato all'interstitial
+                    bg.setCornerRadius(44);
+                    layout.setBackground(bg);
+
+                    android.widget.TextView title = new android.widget.TextView(activity);
+                    title.setText("Report this Ad?");
+                    title.setTextColor(Color.WHITE);
+                    title.setTextSize(18);
+                    title.setGravity(android.view.Gravity.CENTER);
+                    title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+                    layout.addView(title);
+
+                    android.widget.TextView message = new android.widget.TextView(activity);
+                    message.setText("Do you want to report this ad for inappropriate content?");
+                    message.setTextColor(Color.parseColor("#94a3b8"));
+                    message.setTextSize(14);
+                    message.setGravity(android.view.Gravity.CENTER);
+                    android.widget.LinearLayout.LayoutParams msgParams = new android.widget.LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    msgParams.setMargins(0, 24, 0, 48);
+                    message.setLayoutParams(msgParams);
+                    layout.addView(message);
+
+                    android.widget.LinearLayout btnLayout = new android.widget.LinearLayout(activity);
+                    btnLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+                    btnLayout.setWeightSum(2);
+
+                    android.widget.Button btnCancel = new android.widget.Button(activity);
+                    btnCancel.setText("Cancel");
+                    btnCancel.setTextSize(14);
+                    btnCancel.setTextColor(Color.WHITE);
+                    btnCancel.setAllCaps(false);
+                    android.graphics.drawable.GradientDrawable cancelBg = new android.graphics.drawable.GradientDrawable();
+                    cancelBg.setColor(Color.parseColor("#1e293b"));
+                    cancelBg.setCornerRadius(24);
+                    btnCancel.setBackground(cancelBg);
+                    android.widget.LinearLayout.LayoutParams cancelParams = new android.widget.LinearLayout.LayoutParams(0, 110, 1);
+                    cancelParams.setMargins(0, 0, 12, 0);
+                    btnCancel.setLayoutParams(cancelParams);
+
+                    android.widget.Button btnSend = new android.widget.Button(activity);
+                    btnSend.setText("Report");
+                    btnSend.setTextSize(14);
+                    btnSend.setTextColor(Color.WHITE);
+                    btnSend.setAllCaps(false);
+                    android.graphics.drawable.GradientDrawable sendBg = new android.graphics.drawable.GradientDrawable();
+                    sendBg.setColor(Color.parseColor("#ef4444"));
+                    sendBg.setCornerRadius(24);
+                    btnSend.setBackground(sendBg);
+                    android.widget.LinearLayout.LayoutParams sendParams = new android.widget.LinearLayout.LayoutParams(0, 110, 1);
+                    sendParams.setMargins(12, 0, 0, 0);
+                    btnSend.setLayoutParams(sendParams);
+
+                    btnLayout.addView(btnCancel);
+                    btnLayout.addView(btnSend);
+                    layout.addView(btnLayout);
+
+                    AlertDialog dialog = new AlertDialog.Builder(activity).setView(layout).create();
+                    if (dialog.getWindow() != null) {
+                        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
                     }
+                    dialog.show();
+
+                    btnCancel.setOnClickListener(v -> dialog.dismiss());
+                    btnSend.setOnClickListener(v -> {
+                        webView.evaluateJavascript("window.AdSwapSDK.executeReport('" + adId + "');", null);
+                        Toast.makeText(activity, "Report submitted. Thank you.", Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    });
                 });
             }
         }, "AdSwapAndroid");

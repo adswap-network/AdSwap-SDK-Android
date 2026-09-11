@@ -68,7 +68,7 @@ public class AdSwap {
     public static void showInterstitial(Activity activity, String category, String platform, InterstitialCallback callback) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 
-        currentCallback = callback; // Salva la callback per lanciarla alla chiusura
+        currentCallback = callback;
 
         activity.runOnUiThread(() -> {
             destroyInterstitial();
@@ -79,9 +79,9 @@ public class AdSwap {
                     ViewGroup.LayoutParams.MATCH_PARENT
             ));
 
-            // Inizialmente trasparente e invisibile per Chromium
-            overlayContainer.setBackgroundColor(Color.TRANSPARENT);
-            overlayContainer.setAlpha(0f);
+            // 🔥 FIX SFARFALLIO: Sfondo scuro e Alpha 1 da subito (niente transizioni trasparenti visibili)
+            overlayContainer.setBackgroundColor(Color.parseColor("#020617"));
+            overlayContainer.setAlpha(1f);
             overlayContainer.setVisibility(View.VISIBLE);
 
             interstitialWebView = new WebView(activity);
@@ -92,11 +92,38 @@ public class AdSwap {
 
             overlayContainer.addView(interstitialWebView);
 
-            // Crea un Dialog a schermo intero senza titolo
             interstitialDialog = new android.app.Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
             interstitialDialog.setContentView(overlayContainer);
-            // Blocca la chiusura tappando fuori o col tasto back fisico: l'utente deve premere la X dell'annuncio
             interstitialDialog.setCancelable(false);
+
+            // 🔥 FIX EDGE-TO-EDGE MODERNO (SDK 35+ / Android 15)
+            if (interstitialDialog.getWindow() != null) {
+                android.view.Window dialogWindow = interstitialDialog.getWindow();
+
+                dialogWindow.setLayout(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                );
+
+                // Diciamo alla finestra di ignorare le finestre di sistema e disegnare a tutto schermo
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(dialogWindow, false);
+                dialogWindow.setStatusBarColor(Color.TRANSPARENT);
+                dialogWindow.setNavigationBarColor(Color.TRANSPARENT);
+
+                // Nascondiamo completamente la barra di stato e la barra di navigazione per l'interstitial
+                androidx.core.view.WindowInsetsControllerCompat controller =
+                        androidx.core.view.WindowCompat.getInsetsController(dialogWindow, overlayContainer);
+                if (controller != null) {
+                    controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars());
+                    controller.setSystemBarsBehavior(
+                            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                }
+
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    dialogWindow.getAttributes().layoutInDisplayCutoutMode =
+                            android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                }
+            }
 
             if (!activity.isFinishing()) {
                 interstitialDialog.show();

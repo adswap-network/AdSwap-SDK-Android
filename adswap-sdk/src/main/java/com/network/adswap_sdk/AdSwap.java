@@ -317,6 +317,60 @@ public class AdSwap {
                     });
                 });
             }
+
+            // GESTORE DEL POPUP INFO NATIVO
+            @JavascriptInterface
+            public void showInfoDialog(String messageContent) {
+                MAIN.post(() -> {
+                    android.widget.LinearLayout layout = new android.widget.LinearLayout(activity);
+                    layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                    layout.setPadding(64, 64, 64, 64);
+
+                    android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+                    bg.setColor(Color.parseColor("#0f172a")); // Tema scuro
+                    bg.setCornerRadius(44);
+                    layout.setBackground(bg);
+
+                    android.widget.TextView title = new android.widget.TextView(activity);
+                    title.setText("About this Ad");
+                    title.setTextColor(Color.WHITE);
+                    title.setTextSize(18);
+                    title.setGravity(android.view.Gravity.CENTER);
+                    title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.BOLD));
+                    layout.addView(title);
+
+                    android.widget.TextView message = new android.widget.TextView(activity);
+                    message.setText(messageContent); // Passiamo il testo generato da JS
+                    message.setTextColor(Color.parseColor("#94a3b8"));
+                    message.setTextSize(14);
+                    message.setGravity(android.view.Gravity.LEFT);
+                    android.widget.LinearLayout.LayoutParams msgParams = new android.widget.LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                    msgParams.setMargins(0, 24, 0, 48);
+                    message.setLayoutParams(msgParams);
+                    layout.addView(message);
+
+                    android.widget.Button btnOk = new android.widget.Button(activity);
+                    btnOk.setText("Got it");
+                    btnOk.setTextSize(14);
+                    btnOk.setTextColor(Color.WHITE);
+                    btnOk.setAllCaps(false);
+                    android.graphics.drawable.GradientDrawable okBg = new android.graphics.drawable.GradientDrawable();
+                    okBg.setColor(Color.parseColor("#6366f1")); // Tema indigo
+                    okBg.setCornerRadius(24);
+                    btnOk.setBackground(okBg);
+
+                    layout.addView(btnOk);
+
+                    AlertDialog dialog = new AlertDialog.Builder(activity).setView(layout).create();
+                    if (dialog.getWindow() != null) {
+                        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+                    }
+                    dialog.show();
+
+                    btnOk.setOnClickListener(v -> dialog.dismiss());
+                });
+            }
         }, "AdSwapAndroid");
     }
 }

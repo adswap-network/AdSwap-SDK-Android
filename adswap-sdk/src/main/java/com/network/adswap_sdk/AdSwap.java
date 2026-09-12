@@ -57,14 +57,18 @@ public class AdSwap {
     // =========================================================
     // INTERSTITIAL METODI (OVERLOADING)
     // =========================================================
+
+    // Metodo base assoluto (Chiamato da Unity/Flutter o chi non vuole il callback)
     public static void showInterstitial(Activity activity, String category) {
         showInterstitial(activity, category, "android", null);
     }
 
+    // 🔥 FIX: IL METODO CHE USA LA DASHBOARD HTML (Mancava!)
     public static void showInterstitial(Activity activity, String category, InterstitialCallback callback) {
         showInterstitial(activity, category, "android", callback);
     }
 
+    // Metodo esplicito completo (Usato dal core)
     public static void showInterstitial(Activity activity, String category, String platform, InterstitialCallback callback) {
         if (pubId == null) throw new IllegalStateException("AdSwap must be initialized first");
 

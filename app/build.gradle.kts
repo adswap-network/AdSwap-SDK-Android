@@ -45,6 +45,6 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    //implementation("com.github.adswap-network:AdSwap-SDK-Android:1.0.15")
+    //implementation("com.github.adswap-network:AdSwap-SDK-Android:1.0.20")
     implementation(project(":adswap-sdk"))
 }
